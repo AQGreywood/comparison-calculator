@@ -8,7 +8,7 @@
       font-family: 'Afacad', sans-serif;
       color: #313f5e;
       padding: 20px;
-      max-width: 900px;
+      max-width: 1200px;
       margin: auto;
     }
     h1 {
@@ -16,16 +16,27 @@
       font-size: 2.8rem;
       text-align: center;
     }
-    label, input, select {
+    label {
       font-size: 1.4rem;
       display: block;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
+    }
+    input, select {
+      font-size: 1.4rem;
+      margin-bottom: 10px;
       width: 100%;
+      padding: 6px;
+    }
+    .product-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
     }
     .product {
       border: 1px solid #ccc;
       padding: 15px;
-      margin-bottom: 15px;
+      flex: 1 1 45%;
+      min-width: 300px;
     }
     .button-group {
       margin-top: 20px;
@@ -46,6 +57,7 @@
     th, td {
       padding: 10px;
       text-align: center;
+      font-size: 1.4rem;
     }
     @media print {
       button, .button-group, input, select, .add-product {
@@ -62,28 +74,16 @@
   <img src="https://images.squarespace-cdn.com/content/v1/5efb1bee6343343fd830f82d/c73598a6-635d-494c-b7ec-af6bad0aed3b/Greywood+Logo+2025_Blue_High+Resolution_Compressed.png?format=1500w" style="max-width: 300px; display: block; margin: auto;">
   <h1>Mortgage Comparison Calculator</h1>
 
-  <label>Loan Amount (£)</label>
-  <input type="number" id="loan" />
+  <label>£ Loan Amount</label>
+  <input type="number" id="loan">
 
   <label>Mortgage Term (years)</label>
-  <input type="number" id="term" />
+  <input type="number" id="term">
 
   <label>Comparison Period (months)</label>
-  <input type="number" id="comparison" />
+  <input type="number" id="comparison">
 
-  <label>Valuation Fee (£)</label>
-  <input type="number" id="valuation" />
-
-  <label>Legal Fee (£)</label>
-  <input type="number" id="legal" />
-
-  <label>Broker Fee (£)</label>
-  <input type="number" id="broker" />
-
-  <label>Application Fee (£)</label>
-  <input type="number" id="application" />
-
-  <div id="products"></div>
+  <div class="product-container" id="products"></div>
   <button class="add-product">Add Product</button>
 
   <div class="button-group">
@@ -95,7 +95,7 @@
   <div id="results"></div>
 
   <script>
-    document.querySelector('.add-product').addEventListener('click', addProduct);
+    document.querySelector('.add-product').addEventListener('click', () => addProduct());
 
     function addProduct(prefill = {}) {
       const div = document.createElement('div');
@@ -107,10 +107,22 @@
         <label>Product Rate (%)</label>
         <input type="number" step="0.01" class="rate" value="${prefill.rate || ''}">
 
-        <label>Product Fee (£)</label>
+        <label>£ Product Fee</label>
         <input type="number" class="fee" value="${prefill.fee || ''}">
 
-        <label><input type="checkbox" class="addFee" ${prefill.addFee ? 'checked' : ''}> Add fee to loan</label>
+        <label><input type="checkbox" class="addFee" ${prefill.addFee ? 'checked' : ''}> Add product fee to loan</label>
+
+        <label>£ Valuation Fee</label>
+        <input type="number" class="valFee" value="${prefill.valFee || ''}">
+
+        <label>£ Legal Fee</label>
+        <input type="number" class="legFee" value="${prefill.legFee || ''}">
+
+        <label>£ Broker Fee</label>
+        <input type="number" class="broFee" value="${prefill.broFee || ''}">
+
+        <label>£ Application Fee</label>
+        <input type="number" class="appFee" value="${prefill.appFee || ''}">
 
         <label>Repayment Type</label>
         <select class="repayment">
@@ -132,14 +144,15 @@
       document.getElementById('products').appendChild(div);
     }
 
+    function formatCurrency(value) {
+      return '£' + Number(value).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
     function calculate() {
       const loan = parseFloat(document.getElementById('loan').value);
       const term = parseFloat(document.getElementById('term').value);
       const comparison = parseFloat(document.getElementById('comparison').value);
-      const valFee = parseFloat(document.getElementById('valuation').value) || 0;
-      const legFee = parseFloat(document.getElementById('legal').value) || 0;
-      const broFee = parseFloat(document.getElementById('broker').value) || 0;
-      const appFee = parseFloat(document.getElementById('application').value) || 0;
+      const months = term * 12;
 
       const products = Array.from(document.querySelectorAll('.product')).map(p => {
         return {
@@ -147,17 +160,20 @@
           rate: parseFloat(p.querySelector('.rate').value),
           fee: parseFloat(p.querySelector('.fee').value),
           addFee: p.querySelector('.addFee').checked,
+          valFee: parseFloat(p.querySelector('.valFee').value) || 0,
+          legFee: parseFloat(p.querySelector('.legFee').value) || 0,
+          broFee: parseFloat(p.querySelector('.broFee').value) || 0,
+          appFee: parseFloat(p.querySelector('.appFee').value) || 0,
           repayment: p.querySelector('.repayment').value,
           partPart: parseFloat(p.querySelector('.partPart')?.value) || 0
         };
       });
 
       let html = '<p><em>Prepared for you by Greywood Financial</em></p>';
-      html += '<table><tr><th>Type</th><th>Monthly</th><th>Total Cost</th><th>Remaining Balance</th></tr>';
+      html += '<table><tr><th>Type</th><th>Monthly</th><th>Total Cost</th><th>Remaining Balance</th><th>Fees Summary</th></tr>';
 
       products.forEach(prod => {
         let totalLoan = loan + (prod.addFee ? prod.fee : 0);
-        let months = term * 12;
         let rateMonthly = prod.rate / 100 / 12;
         let capitalPortion = totalLoan, intOnlyPortion = 0;
 
@@ -172,18 +188,28 @@
         let capitalPayment = capitalPortion > 0 ? 
           (capitalPortion * rateMonthly) / (1 - Math.pow(1 + rateMonthly, -months)) : 0;
         let intOnlyPayment = intOnlyPortion * rateMonthly;
-
         let monthly = capitalPayment + intOnlyPayment;
-        let totalCost = (monthly * comparison) + valFee + legFee + broFee + appFee + (prod.addFee ? 0 : prod.fee);
+
+        let totalCost = (monthly * comparison) +
+          (prod.addFee ? 0 : prod.fee) +
+          prod.valFee + prod.legFee + prod.broFee + prod.appFee;
+
         let balance = capitalPortion > 0 ? 
-          capitalPortion * Math.pow(1 + rateMonthly, comparison) - 
-          ( (Math.pow(1 + rateMonthly, comparison) - 1) / rateMonthly ) * capitalPayment : totalLoan;
+          capitalPortion * Math.pow(1 + rateMonthly, comparison) -
+          ((Math.pow(1 + rateMonthly, comparison) - 1) / rateMonthly) * capitalPayment : totalLoan;
+
+        let feeSummary = `${formatCurrency(prod.fee)} Product${prod.addFee ? ' (added to loan)' : ''} + ` +
+                         `${formatCurrency(prod.valFee)} Valuation + ` +
+                         `${formatCurrency(prod.legFee)} Legal + ` +
+                         `${formatCurrency(prod.broFee)} Broker + ` +
+                         `${formatCurrency(prod.appFee)} App`;
 
         html += `<tr>
           <td>${prod.type}</td>
-          <td>£${monthly.toFixed(2)}</td>
-          <td>£${totalCost.toFixed(2)}</td>
-          <td>£${balance.toFixed(2)}</td>
+          <td>${formatCurrency(monthly)}</td>
+          <td>${formatCurrency(totalCost)}</td>
+          <td>${formatCurrency(balance)}</td>
+          <td style="text-align:left">${feeSummary}</td>
         </tr>`;
       });
 
@@ -193,7 +219,7 @@
 
     function generateLink() {
       const params = new URLSearchParams();
-      ['loan','term','comparison','valuation','legal','broker','application'].forEach(id => {
+      ['loan','term','comparison'].forEach(id => {
         const val = document.getElementById(id).value;
         if (val) params.set(id, val);
       });
@@ -203,6 +229,10 @@
         params.set(`prod${i}rate`, p.querySelector('.rate').value);
         params.set(`prod${i}fee`, p.querySelector('.fee').value);
         params.set(`prod${i}addFee`, p.querySelector('.addFee').checked ? '1' : '0');
+        params.set(`prod${i}valFee`, p.querySelector('.valFee').value);
+        params.set(`prod${i}legFee`, p.querySelector('.legFee').value);
+        params.set(`prod${i}broFee`, p.querySelector('.broFee').value);
+        params.set(`prod${i}appFee`, p.querySelector('.appFee').value);
         params.set(`prod${i}repayment`, p.querySelector('.repayment').value);
         if (p.querySelector('.partPart')) {
           params.set(`prod${i}partPart`, p.querySelector('.partPart').value);
@@ -216,7 +246,7 @@
     // On load: read params
     window.onload = () => {
       const p = new URLSearchParams(window.location.search);
-      ['loan','term','comparison','valuation','legal','broker','application'].forEach(id => {
+      ['loan','term','comparison'].forEach(id => {
         if (p.has(id)) document.getElementById(id).value = p.get(id);
       });
 
@@ -227,6 +257,10 @@
           rate: p.get(`prod${i}rate`),
           fee: p.get(`prod${i}fee`),
           addFee: p.get(`prod${i}addFee`) === '1',
+          valFee: p.get(`prod${i}valFee`),
+          legFee: p.get(`prod${i}legFee`),
+          broFee: p.get(`prod${i}broFee`),
+          appFee: p.get(`prod${i}appFee`),
           repayment: p.get(`prod${i}repayment`),
           partPart: p.get(`prod${i}partPart`)
         });
